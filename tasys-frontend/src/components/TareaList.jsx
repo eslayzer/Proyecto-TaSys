@@ -157,7 +157,11 @@ const TareaList = ({ actualizar }) => {
                 <strong>{tarea.titulo}</strong><br />
                 Estado: <strong>{tarea.estado}</strong><br />
                 Prioridad: {tarea.prioridad}<br />
-                Fecha límite: {tarea.fecha_limite}<br />
+                Fecha límite: {new Date(tarea.fecha_limite).toLocaleDateString('es-EC', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })}<br />
                 Categoría: {tarea.categoria}<br />
                 Descripción: {tarea.descripcion}<br />
 
