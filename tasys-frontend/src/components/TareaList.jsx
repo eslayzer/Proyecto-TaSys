@@ -29,7 +29,7 @@ const TareaList = ({ actualizar }) => {
       return;
     }
 
-    // Si hay filtros, usarlos
+    // Si hay filtros
     const params = new URLSearchParams();
 
     if (filtro.estado) params.append('estado', filtro.estado);
