@@ -1,43 +1,38 @@
 // tasys-frontend/src/components/TareaList.jsx
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { downloadTasksAsCsv, downloadPdfFromServer } from '../utils/exportUtils'; // <--- Importación de utilidades de exportación
+import { downloadTasksAsCsv, downloadPdfFromServer } from '../utils/exportUtils';
 
-const TareaList = ({ actualizar }) => {
+// Añade onEditarTarea como prop
+const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE AQUÍ: Añadido onEditarTarea
   const [tareas, setTareas] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(null); // Añadimos estado para manejar errores
+  const [error, setError] = useState(null);
 
-  // Filtros
   const [filtro, setFiltro] = useState({
     estado: '',
     prioridad: '',
     categoria: ''
   });
 
-  const cargarTareas = async () => { // Usamos async/await para mayor claridad
+  const cargarTareas = async () => {
     setCargando(true);
-    setError(null); // Limpiamos errores anteriores
+    setError(null);
 
     try {
-      // *** CAMBIO PRINCIPAL AQUÍ: Se eliminó '/tasks' de la URL base ***
-      let url = 'http://localhost:3000/api/tareas'; // <-- CORRECTO: /api/tareas
-
-      // Si hay filtros, ajusta la URL
+      let url = 'http://localhost:3000/api/tareas';
       if (filtro.estado || filtro.prioridad || filtro.categoria) {
         const params = new URLSearchParams();
         if (filtro.estado) params.append('estado', filtro.estado);
         if (filtro.prioridad) params.append('prioridad', filtro.prioridad);
         if (filtro.categoria) params.append('categoria', filtro.categoria);
-        // *** CAMBIO PRINCIPAL AQUÍ: Se eliminó '/tasks' de la URL de filtro ***
-        url = `http://localhost:3000/api/tareas/filtrar?${params.toString()}`; // <-- CORRECTO: /api/tareas/filtrar
+        url = `http://localhost:3000/api/tareas/filtrar?${params.toString()}`;
       }
-
       const res = await axios.get(url);
       setTareas(res.data);
     } catch (err) {
       console.error('Error al obtener/filtrar tareas:', err);
-      setError(err); // Guardamos el error en el estado
+      setError(err);
     } finally {
       setCargando(false);
     }
@@ -45,25 +40,22 @@ const TareaList = ({ actualizar }) => {
 
   useEffect(() => {
     cargarTareas();
-  }, [actualizar, filtro]); // Se ejecuta cuando 'actualizar' cambia o cuando 'filtro' cambia
+  }, [actualizar, filtro]);
 
   const handleFiltroChange = (e) => {
     setFiltro({
       ...filtro,
       [e.target.name]: e.target.value
     });
-    // No llamamos cargarTareas aquí directamente, el useEffect con [filtro] lo hará.
   };
 
   const limpiarFiltros = () => {
     setFiltro({ estado: '', prioridad: '', categoria: '' });
-    // cargarTareas() se ejecutará por el useEffect
   };
 
   const marcarComoCompletada = async (id) => {
     try {
-      // *** CAMBIO PRINCIPAL AQUÍ: Se eliminó '/tasks' de la URL de completar ***
-      await axios.put(`http://localhost:3000/api/tareas/${id}/completar`); // <-- CORRECTO: /api/tareas/:id/completar
+      await axios.put(`http://localhost:3000/api/tareas/${id}/completar`);
       cargarTareas();
     } catch (error) {
       console.error('Error al completar tarea:', error);
@@ -73,10 +65,8 @@ const TareaList = ({ actualizar }) => {
 
   const eliminarTarea = async (id) => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar esta tarea?')) return;
-
     try {
-      // *** CAMBIO PRINCIPAL AQUÍ: Se eliminó '/tasks' de la URL de eliminar ***
-      await axios.delete(`http://localhost:3000/api/tareas/${id}`); // <-- CORRECTO: /api/tareas/:id
+      await axios.delete(`http://localhost:3000/api/tareas/${id}`);
       cargarTareas();
     } catch (error) {
       console.error('Error al eliminar tarea:', error);
@@ -96,14 +86,10 @@ const TareaList = ({ actualizar }) => {
     <div>
       <h2>Listado de Tareas</h2>
 
-      {/* Botones de Exportación */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '25px', marginTop: '20px' }}>
         <button
           onClick={downloadTasksAsCsv}
-          style={{
-            padding: '10px 20px', fontSize: '15px', backgroundColor: '#4CAF50', color: 'white', border: 'none',
-            borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'background-color 0.3s ease'
-          }}
+          style={{ padding: '10px 20px', fontSize: '15px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'background-color 0.3s ease' }}
           onMouseOver={e => e.currentTarget.style.backgroundColor = '#45a049'}
           onMouseOut={e => e.currentTarget.style.backgroundColor = '#4CAF50'}
         >
@@ -111,10 +97,7 @@ const TareaList = ({ actualizar }) => {
         </button>
         <button
           onClick={downloadPdfFromServer}
-          style={{
-            padding: '10px 20px', fontSize: '15px', backgroundColor: '#008CBA', color: 'white', border: 'none',
-            borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'background-color 0.3s ease'
-          }}
+          style={{ padding: '10px 20px', fontSize: '15px', backgroundColor: '#008CBA', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'background-color 0.3s ease' }}
           onMouseOver={e => e.currentTarget.style.backgroundColor = '#007bb5'}
           onMouseOut={e => e.currentTarget.style.backgroundColor = '#008CBA'}
         >
@@ -122,7 +105,6 @@ const TareaList = ({ actualizar }) => {
         </button>
       </div>
 
-      {/* Filtros */}
       <div style={{ marginBottom: '15px' }}>
         <label>Estado: </label>
         <select name="estado" value={filtro.estado} onChange={handleFiltroChange}>
@@ -154,14 +136,12 @@ const TareaList = ({ actualizar }) => {
         <button onClick={limpiarFiltros} style={{ marginLeft: '5px' }}>Mostrar todo</button>
       </div>
 
-      {/* Lista */}
       {tareas.length === 0 ? (
         <p>No hay tareas registradas.</p>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {tareas.map(tarea => {
             let colorFondo = '#eee';
-
             switch (tarea.estado) {
               case 'Vencida':
                 colorFondo = '#ffdddd';
@@ -176,7 +156,7 @@ const TareaList = ({ actualizar }) => {
                 colorFondo = '#d0e8ff';
                 break;
               default:
-                colorFondo = '#f0f0f0'; // Color por defecto para estados no mapeados
+                colorFondo = '#f0f0f0';
             }
 
             return (
@@ -191,7 +171,6 @@ const TareaList = ({ actualizar }) => {
                 <strong>{tarea.titulo}</strong><br />
                 Estado: <strong>{tarea.estado}</strong><br />
                 Prioridad: {tarea.prioridad}<br />
-                {/* *** CAMBIO AQUÍ: Se usa 'fecha_limite' *** */}
                 Fecha límite: {tarea.fecha_limite ? new Date(tarea.fecha_limite).toLocaleDateString('es-EC', {
                   day: '2-digit',
                   month: '2-digit',
@@ -205,6 +184,15 @@ const TareaList = ({ actualizar }) => {
                     Marcar como Completada
                   </button>
                 )}
+                
+                {/* !!! NUEVO BOTÓN DE EDITAR !!! */}
+                {/* Llama a la función onEditarTarea pasada desde App.jsx, enviando la tarea completa */}
+                <button
+                  onClick={() => onEditarTarea(tarea)} // <-- CAMBIO IMPORTANTE AQUÍ: Se añade el botón de editar
+                  style={{ marginLeft: '10px', backgroundColor: '#007bff', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }}
+                >
+                  Editar
+                </button>
 
                 <button
                   onClick={() => eliminarTarea(tarea.id)}
