@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { downloadTasksAsCsv, downloadPdfFromServer } from '../utils/exportUtils';
 import HistorialTarea from './HistorialTarea'; // ✅ Importar componente de historial
+import SubtareaList from './SubtareaList'; // <<-- NUEVO: Importa el componente de lista de subtareas
 
 const TareaList = ({ actualizar, onEditarTarea }) => {
   const [tareas, setTareas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [tareaHistorialVisible, setTareaHistorialVisible] = useState(null); // ✅ Nueva variable de estado
+  const [tareaExpandidaId, setTareaExpandidaId] = useState(null); // <<-- NUEVO: Estado para controlar la expansión de subtareas
 
   const [filtro, setFiltro] = useState({
     estado: '',
@@ -57,6 +59,9 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
     try {
       await axios.put(`http://localhost:3000/api/tareas/${id}/completar`);
       cargarTareas();
+       // Opcional: Cierra las subtareas y el historial si se completa la tarea principal
+      setTareaExpandidaId(null);
+      setTareaHistorialVisible(null);
     } catch (error) {
       console.error('Error al completar tarea:', error);
       alert('No se pudo marcar como completada');
@@ -68,6 +73,9 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
     try {
       await axios.delete(`http://localhost:3000/api/tareas/${id}`);
       cargarTareas();
+      // Opcional: Cierra las subtareas y el historial si se elimina la tarea principal
+      setTareaExpandidaId(null);
+      setTareaHistorialVisible(null);
     } catch (error) {
       console.error('Error al eliminar tarea:', error);
       alert('No se pudo eliminar la tarea');
@@ -84,7 +92,7 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
 
   return (
     <div>
-      <h2>Listado de Tareas</h2>
+      <h2 style={{ color: 'white' }}>Listado de Tareas</h2> {/* Añadido color blanco para el título */}
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '25px', marginTop: '20px' }}>
         <button
@@ -119,9 +127,10 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
       </div>
 
       {/* Filtros */}
-      <div style={{ marginBottom: '15px' }}>
+      <div style={{ marginBottom: '15px', color: 'white' }}> {/* Añadido color blanco para los labels de filtro */}
         <label>Estado: </label>
-        <select name="estado" value={filtro.estado} onChange={handleFiltroChange}>
+        <select name="estado" value={filtro.estado} onChange={handleFiltroChange}
+          style={{ padding: '5px', borderRadius: '4px', border: '1px solid #666', backgroundColor: '#333', color: 'white' }}>
           <option value="">-- Todos --</option>
           <option value="Pendiente">Pendiente</option>
           <option value="Completada">Completada</option>
@@ -130,7 +139,8 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
         </select>
 
         <label style={{ marginLeft: '10px' }}>Prioridad: </label>
-        <select name="prioridad" value={filtro.prioridad} onChange={handleFiltroChange}>
+        <select name="prioridad" value={filtro.prioridad} onChange={handleFiltroChange}
+          style={{ padding: '5px', borderRadius: '4px', border: '1px solid #666', backgroundColor: '#333', color: 'white' }}>
           <option value="">-- Todas --</option>
           <option value="Alta">Alta</option>
           <option value="Media">Media</option>
@@ -144,15 +154,16 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
           value={filtro.categoria}
           onChange={handleFiltroChange}
           placeholder="Ej: Académico"
+          style={{ padding: '5px', borderRadius: '4px', border: '1px solid #666', backgroundColor: '#333', color: 'white' }}
         />
 
-        <button onClick={cargarTareas} style={{ marginLeft: '10px' }}>Filtrar</button>
-        <button onClick={limpiarFiltros} style={{ marginLeft: '5px' }}>Mostrar todo</button>
+        <button onClick={cargarTareas} style={{ marginLeft: '10px', padding: '5px 10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Filtrar</button>
+        <button onClick={limpiarFiltros} style={{ marginLeft: '5px', padding: '5px 10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Mostrar todo</button>
       </div>
 
       {/* Lista de tareas */}
       {tareas.length === 0 ? (
-        <p>No hay tareas registradas.</p>
+        <p style={{ color: '#888' }}>No hay tareas registradas.</p>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {tareas.map(tarea => {
@@ -164,6 +175,8 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
               case 'En Proceso': colorFondo = '#d0e8ff'; break;
               default: colorFondo = '#f0f0f0';
             }
+
+            const isSubtareaExpanded = tareaExpandidaId === tarea.id; // Verifica si esta tarea tiene las subtareas expandidas
 
             return (
               <li key={tarea.id} style={{
@@ -181,61 +194,71 @@ const TareaList = ({ actualizar, onEditarTarea }) => {
                 Categoría: {tarea.categoria}<br />
                 Descripción: {tarea.descripcion}<br />
 
-                {tarea.estado !== 'Completada' && (
-                  <button onClick={() => marcarComoCompletada(tarea.id)} style={{ marginTop: '8px' }}>
-                    Marcar como Completada
-                  </button>
-                )}
-
-                <button
-                  onClick={() => onEditarTarea(tarea)}
-                  style={{
-                    marginLeft: '10px',
-                    backgroundColor: '#007bff',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '6px 12px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  Editar
-                </button>
-
-                <button
-                  onClick={() => eliminarTarea(tarea.id)}
-                  style={{
-                    marginLeft: '10px',
-                    backgroundColor: '#ff5555',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '6px 12px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  Eliminar
-                </button>
-
-                {/* ✅ Botón y sección de historial */}
-                <button
-                  onClick={() => setTareaHistorialVisible(
-                    tareaHistorialVisible === tarea.id ? null : tarea.id
+                <div style={{ marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}> {/* Contenedor de botones */}
+                  {tarea.estado !== 'Completada' && (
+                    <button onClick={() => marcarComoCompletada(tarea.id)}
+                      style={{
+                        padding: '6px 12px', backgroundColor: '#28a745', color: 'white',
+                        border: 'none', borderRadius: '4px', cursor: 'pointer'
+                      }}>
+                      Marcar como Completada
+                    </button>
                   )}
-                  style={{
-                    marginLeft: '10px',
-                    backgroundColor: '#6c757d',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '6px 12px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  {tareaHistorialVisible === tarea.id ? 'Ocultar historial' : 'Ver historial'}
-                </button>
+
+                  <button
+                    onClick={() => onEditarTarea(tarea)}
+                    style={{
+                      backgroundColor: '#007bff', color: '#fff',
+                      border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer'
+                    }}
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    onClick={() => eliminarTarea(tarea.id)}
+                    style={{
+                      backgroundColor: '#ff5555', color: '#fff',
+                      border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer'
+                    }}
+                  >
+                    Eliminar
+                  </button>
+
+                  {/* ✅ Botón y sección de historial */}
+                  <button
+                    onClick={() => setTareaHistorialVisible(
+                      tareaHistorialVisible === tarea.id ? null : tarea.id
+                    )}
+                    style={{
+                      backgroundColor: '#6c757d', color: '#fff',
+                      border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer'
+                    }}
+                  >
+                    {tareaHistorialVisible === tarea.id ? 'Ocultar historial' : 'Ver historial'}
+                  </button>
+
+                  {/* <<-- NUEVO: Botón para mostrar/ocultar subtareas -->> */}
+                  <button
+                    onClick={() => setTareaExpandidaId(isSubtareaExpanded ? null : tarea.id)}
+                    style={{
+                      backgroundColor: '#6c757d', color: '#fff',
+                      border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer'
+                    }}
+                  >
+                    {isSubtareaExpanded ? 'Ocultar Subtareas' : 'Ver Subtareas'}
+                  </button>
+                </div>
 
                 {tareaHistorialVisible === tarea.id && (
-                  <div style={{ marginTop: '10px' }}>
+                  <div style={{ marginTop: '10px', padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}> {/* Estilos para el historial */}
                     <HistorialTarea tareaId={tarea.id} />
                   </div>
+                )}
+
+                {/* <<-- NUEVO: Renderizar SubtareaList solo si la tarea está expandida -->> */}
+                {isSubtareaExpanded && (
+                  <SubtareaList tareaId={tarea.id} />
                 )}
               </li>
             );

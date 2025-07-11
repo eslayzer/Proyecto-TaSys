@@ -1,25 +1,28 @@
 // PROYECTO-TASYS/tasys-backend/routes/tareas.routes.js
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db'); // Tu conexión directa a la BD
+// Importa el pool de conexiones (que ya es promisificado)
+const pool = require('../config/db'); // <<-- Importa el 'pool' que exportas desde db.js
 const PDFDocument = require('pdfkit');
 const { Parser } = require('json2csv');
 
-// --- Función auxiliar para Promisificar consultas ---
-const queryPromise = (sql, values) => {
-    return new Promise((resolve, reject) => {
-        db.query(sql, values, (error, results) => {
-            if (error) {
-                return reject(error);
-            }
-            resolve(results);
-        });
-    });
-};
+// --- ELIMINAR O COMENTAR: Ya no necesitas esta función auxiliar queryPromise ---
+// const queryPromise = (sql, values) => {
+//     return new Promise((resolve, reject) => {
+//         db.query(sql, values, (error, results) => {
+//             if (error) {
+//                 return reject(error);
+//             }
+//             resolve(results);
+//         });
+//     });
+// };
+
 
 // Crear nueva tarea
-router.post('/tareas', async (req, res) => {
-    const { titulo, descripcion, prioridad, categoria, fecha_limite } = req.body; // <-- CORRECTO: fecha_limite
+// La ruta base ya es /api/tareas, así que aquí es '/'
+router.post('/', async (req, res) => { // <<-- CORREGIDO: de '/tareas' a '/'
+    const { titulo, descripcion, prioridad, categoria, fecha_limite } = req.body;
     const estado = 'Pendiente';
 
     if (!titulo) {
@@ -27,9 +30,10 @@ router.post('/tareas', async (req, res) => {
     }
 
     const sql = `INSERT INTO tareas (titulo, descripcion, prioridad, categoria, fecha_limite, estado)
-                  VALUES (?, ?, ?, ?, ?, ?)`; // <-- CORRECTO: fecha_limite
+                 VALUES (?, ?, ?, ?, ?, ?)`;
     try {
-        const resultado = await queryPromise(sql, [titulo, descripcion, prioridad, categoria, fecha_limite, estado]); // <-- CORRECTO: fecha_limite
+        // Usa directamente pool.query que ya devuelve una promesa
+        const [resultado] = await pool.query(sql, [titulo, descripcion, prioridad, categoria, fecha_limite, estado]); // <<-- CORREGIDO: usar pool.query
         res.status(201).json({ mensaje: 'Tarea creada correctamente', id: resultado.insertId });
     } catch (err) {
         console.error(err);
@@ -38,18 +42,18 @@ router.post('/tareas', async (req, res) => {
 });
 
 // Obtener todas las tareas y actualizar las vencidas
-router.get('/tareas', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/'
+router.get('/', async (req, res) => { // <<-- CORREGIDO: de '/tareas' a '/'
     const actualizarSql = `
         UPDATE tareas
         SET estado = 'Vencida'
         WHERE estado = 'Pendiente' AND fecha_limite < CURDATE()
-    `; // <-- CORREGIDO: fecha_limite
+    `;
 
     try {
-        await queryPromise(actualizarSql); // Ejecutamos la actualización
-        // Seleccionamos TODOS los campos para el frontend y exportaciones
-        const obtenerSql = 'SELECT id, titulo, descripcion, prioridad, categoria, estado, fecha_creacion, fecha_limite FROM tareas'; // <-- CORREGIDO Y COMPLETO
-        const resultados = await queryPromise(obtenerSql);
+        await pool.query(actualizarSql); // <<-- CORREGIDO: usar pool.query
+        const obtenerSql = 'SELECT id, titulo, descripcion, prioridad, categoria, estado, fecha_creacion, fecha_limite FROM tareas';
+        const [resultados] = await pool.query(obtenerSql); // <<-- CORREGIDO: usar pool.query y desestructurar
         res.json(resultados);
     } catch (err) {
         console.error('Error al procesar tareas:', err);
@@ -58,11 +62,11 @@ router.get('/tareas', async (req, res) => {
 });
 
 // Obtener tareas con filtros opcionales
-router.get('/tareas/filtrar', async (req, res) => {
-    const { estado, prioridad, categoria, fecha_limite } = req.query; // <-- CORREGIDO: fecha_limite
+// La ruta base ya es /api/tareas, así que aquí es '/filtrar'
+router.get('/filtrar', async (req, res) => { // <<-- CORREGIDO: de '/tareas/filtrar' a '/filtrar'
+    const { estado, prioridad, categoria, fecha_limite } = req.query;
 
-    // Seleccionamos TODOS los campos para el frontend
-    let sql = 'SELECT id, titulo, descripcion, prioridad, categoria, estado, fecha_creacion, fecha_limite FROM tareas WHERE 1=1'; // <-- CORREGIDO Y COMPLETO
+    let sql = 'SELECT id, titulo, descripcion, prioridad, categoria, estado, fecha_creacion, fecha_limite FROM tareas WHERE 1=1';
     const parametros = [];
 
     if (estado) {
@@ -77,13 +81,13 @@ router.get('/tareas/filtrar', async (req, res) => {
         sql += ' AND categoria = ?';
         parametros.push(categoria);
     }
-    if (fecha_limite) { // <-- CORREGIDO: fecha_limite
-        sql += ' AND fecha_limite = ?'; // <-- CORREGIDO: fecha_limite
-        parametros.push(fecha_limite); // <-- CORREGIDO: fecha_limite
+    if (fecha_limite) {
+        sql += ' AND fecha_limite = ?';
+        parametros.push(fecha_limite);
     }
 
     try {
-        const resultados = await queryPromise(sql, parametros);
+        const [resultados] = await pool.query(sql, parametros); // <<-- CORREGIDO: usar pool.query y desestructurar
         res.json(resultados);
     } catch (err) {
         console.error(err);
@@ -92,18 +96,19 @@ router.get('/tareas/filtrar', async (req, res) => {
 });
 
 // Actualizar una tarea existente con historial
-router.put('/tareas/:id', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/:id'
+router.put('/:id', async (req, res) => { // <<-- CORREGIDO: de '/tareas/:id' a '/:id'
     const { id } = req.params;
-    const { titulo, descripcion, prioridad, categoria, fecha_limite, estado } = req.body; // <-- CORREGIDO: fecha_limite
+    const { titulo, descripcion, prioridad, categoria, fecha_limite, estado } = req.body;
 
     const sql = `
         UPDATE tareas
         SET titulo = ?, descripcion = ?, prioridad = ?, categoria = ?, fecha_limite = ?, estado = ?
         WHERE id = ?
-    `; // <-- CORREGIDO: fecha_limite
+    `;
 
     try {
-        const resultado = await queryPromise(sql, [titulo, descripcion, prioridad, categoria, fecha_limite, estado, id]); // <-- CORREGIDO: fecha_limite
+        const [resultado] = await pool.query(sql, [titulo, descripcion, prioridad, categoria, fecha_limite, estado, id]); // <<-- CORREGIDO: usar pool.query
 
         if (resultado.affectedRows === 0) {
             return res.status(404).json({ mensaje: 'Tarea no encontrada' });
@@ -116,7 +121,7 @@ router.put('/tareas/:id', async (req, res) => {
         `;
         const resumenCambio = `Se actualizó la tarea con estado: ${estado}`;
 
-        await queryPromise(historialSql, [id, resumenCambio]);
+        await pool.query(historialSql, [id, resumenCambio]); // <<-- CORREGIDO: usar pool.query
         res.json({ mensaje: 'Tarea actualizada y historial registrado' });
     } catch (err) {
         console.error(err);
@@ -125,13 +130,14 @@ router.put('/tareas/:id', async (req, res) => {
 });
 
 // Eliminar una tarea por ID
-router.delete('/tareas/:id', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/:id'
+router.delete('/:id', async (req, res) => { // <<-- CORREGIDO: de '/tareas/:id' a '/:id'
     const { id } = req.params;
 
     const sql = 'DELETE FROM tareas WHERE id = ?';
 
     try {
-        const resultado = await queryPromise(sql, [id]);
+        const [resultado] = await pool.query(sql, [id]); // <<-- CORREGIDO: usar pool.query
 
         if (resultado.affectedRows === 0) {
             return res.status(404).json({ mensaje: 'Tarea no encontrada' });
@@ -144,18 +150,18 @@ router.delete('/tareas/:id', async (req, res) => {
 });
 
 // Exportar tareas en formato CSV (backend)
-router.get('/tareas/exportar/csv', async (req, res) => {
-    // SELECT explícito para CSV con todos los campos necesarios
-    const sql = 'SELECT id, titulo, descripcion, prioridad, categoria, fecha_limite, estado, fecha_creacion FROM tareas'; // <-- CORREGIDO: fecha_limite
+// La ruta base ya es /api/tareas, así que aquí es '/exportar/csv'
+router.get('/exportar/csv', async (req, res) => { // <<-- CORREGIDO: de '/tareas/exportar/csv' a '/exportar/csv'
+    const sql = 'SELECT id, titulo, descripcion, prioridad, categoria, fecha_limite, estado, fecha_creacion FROM tareas';
 
     try {
-        const resultados = await queryPromise(sql);
+        const [resultados] = await pool.query(sql); // <<-- CORREGIDO: usar pool.query y desestructurar
 
         if (resultados.length === 0) {
             return res.status(404).json({ mensaje: 'No hay tareas para exportar' });
         }
 
-        const parser = new Parser({ fields: ['id', 'titulo', 'descripcion', 'prioridad', 'categoria', 'fecha_limite', 'estado', 'fecha_creacion'] }); // <-- CORREGIDO: fecha_limite
+        const parser = new Parser({ fields: ['id', 'titulo', 'descripcion', 'prioridad', 'categoria', 'fecha_limite', 'estado', 'fecha_creacion'] });
         const csv = parser.parse(resultados);
 
         res.header('Content-Type', 'text/csv');
@@ -169,12 +175,12 @@ router.get('/tareas/exportar/csv', async (req, res) => {
 });
 
 // Exportar tareas en formato PDF (backend)
-router.get('/tareas/exportar/pdf', async (req, res) => {
-    // Seleccionamos explícitamente los campos que usaremos en el PDF
-    const sql = 'SELECT id, titulo, estado, fecha_creacion, fecha_limite FROM tareas'; // <-- CORREGIDO: fecha_limite
+// La ruta base ya es /api/tareas, así que aquí es '/exportar/pdf'
+router.get('/exportar/pdf', async (req, res) => { // <<-- CORREGIDO: de '/tareas/exportar/pdf' a '/exportar/pdf'
+    const sql = 'SELECT id, titulo, estado, fecha_creacion, fecha_limite FROM tareas';
 
     try {
-        const tasks = await queryPromise(sql);
+        const [tasks] = await pool.query(sql); // <<-- CORREGIDO: usar pool.query y desestructurar
 
         if (tasks.length === 0) {
             return res.status(404).json({ mensaje: 'No hay tareas para exportar' });
@@ -185,11 +191,10 @@ router.get('/tareas/exportar/pdf', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename="reporte_tareas_${Date.now()}.pdf"`);
         doc.pipe(res);
 
-        // Título
+        // ... (el resto del código de PDFKit es correcto y no necesita cambios)
         doc.fontSize(20).font('Helvetica-Bold').text('Reporte de Tareas', { align: 'center' });
         doc.moveDown(1);
 
-        // Información de generación
         doc.fontSize(10).font('Helvetica').text(`Fecha de Generación: ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`, { align: 'right' });
         doc.moveDown(1);
 
@@ -198,55 +203,51 @@ router.get('/tareas/exportar/pdf', async (req, res) => {
         const tituloX = 90;
         const estadoX = 300;
         const creacionX = 380;
-        const limiteX = 470; // Cambiado para reflejar 'fecha_limite'
+        const limiteX = 470;
         const rowHeight = 25;
 
-        // Dibujar cabeceras de tabla
         doc.font('Helvetica-Bold').fontSize(10);
         doc.text('ID', idX, tableTop, { width: 40 });
         doc.text('Título', tituloX, tableTop, { width: 200 });
         doc.text('Estado', estadoX, tableTop, { width: 80 });
         doc.text('Creación', creacionX, tableTop, { width: 80 });
-        doc.text('Fecha Límite', limiteX, tableTop, { width: 80 }); // <-- CORREGIDO: "Fecha Límite" en PDF
+        doc.text('Fecha Límite', limiteX, tableTop, { width: 80 });
         doc.strokeColor('#aaaaaa').lineWidth(1).moveTo(idX, tableTop + rowHeight - 5).lineTo(doc.page.width - doc.page.margins.right, tableTop + rowHeight - 5).stroke();
         doc.moveDown(0.5);
 
         let currentY = tableTop + rowHeight;
         doc.font('Helvetica').fontSize(9);
 
-        // Dibujar filas de datos
         tasks.forEach(task => {
             if (currentY + rowHeight > doc.page.height - doc.page.margins.bottom) {
                 doc.addPage();
-                currentY = doc.page.margins.top; // Reiniciar Y en la nueva página
-                // Redibujar cabeceras en la nueva página
+                currentY = doc.page.margins.top;
                 doc.font('Helvetica-Bold').fontSize(10);
                 doc.text('ID', idX, currentY, { width: 40 });
                 doc.text('Título', tituloX, currentY, { width: 200 });
                 doc.text('Estado', estadoX, currentY, { width: 80 });
                 doc.text('Creación', creacionX, currentY, { width: 80 });
-                doc.text('Fecha Límite', limiteX, currentY, { width: 80 }); // <-- CORREGIDO: "Fecha Límite" en PDF
+                doc.text('Fecha Límite', limiteX, currentY, { width: 80 });
                 doc.strokeColor('#aaaaaa').lineWidth(1).moveTo(idX, currentY + rowHeight - 5).lineTo(doc.page.width - doc.page.margins.right, currentY + rowHeight - 5).stroke();
                 doc.moveDown(0.5);
                 currentY += rowHeight;
                 doc.font('Helvetica').fontSize(9);
             }
 
-            // Colores para el estado
             let statusColor = 'black';
-            if (task.estado === 'Pendiente') statusColor = '#ff9800'; // Naranja
-            else if (task.estado === 'Completada') statusColor = '#4caf50'; // Verde
-            else if (task.estado === 'En Proceso') statusColor = '#2196f3'; // Azul
-            else if (task.estado === 'Vencida') statusColor = '#d32f2f'; // Rojo oscuro
+            if (task.estado === 'Pendiente') statusColor = '#ff9800';
+            else if (task.estado === 'Completada') statusColor = '#4caf50';
+            else if (task.estado === 'En Proceso') statusColor = '#2196f3';
+            else if (task.estado === 'Vencida') statusColor = '#d32f2f';
 
             doc.text(task.id, idX, currentY, { width: 40 });
             doc.text(task.titulo, tituloX, currentY, { width: 200 });
             doc.fillColor(statusColor).text(task.estado, estadoX, currentY, { width: 80 });
             doc.fillColor('black').text(task.fecha_creacion ? new Date(task.fecha_creacion).toLocaleDateString('es-ES') : 'N/A', creacionX, currentY, { width: 80 });
-            doc.text(task.fecha_limite ? new Date(task.fecha_limite).toLocaleDateString('es-ES') : 'N/A', limiteX, currentY, { width: 80 }); // <-- CORREGIDO: task.fecha_limite
-            doc.moveDown(0.5); // Espacio entre filas
+            doc.text(task.fecha_limite ? new Date(task.fecha_limite).toLocaleDateString('es-ES') : 'N/A', limiteX, currentY, { width: 80 });
+            doc.moveDown(0.5);
 
-            currentY += rowHeight; // Mover al siguiente espacio de fila
+            currentY += rowHeight;
         });
 
         doc.end();
@@ -259,7 +260,8 @@ router.get('/tareas/exportar/pdf', async (req, res) => {
 
 
 // Obtener estadísticas básicas de tareas
-router.get('/tareas/estadisticas', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/estadisticas'
+router.get('/estadisticas', async (req, res) => { // <<-- CORREGIDO: de '/tareas/estadisticas' a '/estadisticas'
     const sql = `
         SELECT
             COUNT(*) AS total,
@@ -268,10 +270,10 @@ router.get('/tareas/estadisticas', async (req, res) => {
             SUM(estado = 'Completada') AS completadas,
             SUM(estado != 'Completada' AND fecha_limite < CURDATE()) AS vencidas
         FROM tareas;
-    `; // <-- CORREGIDO: fecha_limite
+    `;
 
     try {
-        const resultados = await queryPromise(sql);
+        const [resultados] = await pool.query(sql); // <<-- CORREGIDO: usar pool.query y desestructurar
         res.json(resultados[0]);
     } catch (err) {
         console.error(err);
@@ -280,7 +282,8 @@ router.get('/tareas/estadisticas', async (req, res) => {
 });
 
 // Obtener historial de cambios de una tarea
-router.get('/tareas/:id/historial', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/:id/historial'
+router.get('/:id/historial', async (req, res) => { // <<-- CORREGIDO: de '/tareas/:id/historial' a '/:id/historial'
     const { id } = req.params;
 
     const sql = `
@@ -290,7 +293,7 @@ router.get('/tareas/:id/historial', async (req, res) => {
     `;
 
     try {
-        const resultados = await queryPromise(sql, [id]);
+        const [resultados] = await pool.query(sql, [id]); // <<-- CORREGIDO: usar pool.query y desestructurar
         res.json(resultados);
     } catch (err) {
         console.error(err);
@@ -299,15 +302,16 @@ router.get('/tareas/:id/historial', async (req, res) => {
 });
 
 // Obtener tareas próximas a vencer (ejemplo: en los próximos 2 días)
-router.get('/tareas/alertas/proximas', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/alertas/proximas'
+router.get('/alertas/proximas', async (req, res) => { // <<-- CORREGIDO: de '/tareas/alertas/proximas' a '/alertas/proximas'
     const sql = `
         SELECT id, titulo, descripcion, prioridad, categoria, estado, fecha_creacion, fecha_limite FROM tareas
         WHERE estado != 'Completada'
         AND fecha_limite BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)
-    `; // <-- CORREGIDO Y COMPLETO: fecha_limite
+    `;
 
     try {
-        const resultados = await queryPromise(sql);
+        const [resultados] = await pool.query(sql); // <<-- CORREGIDO: usar pool.query y desestructurar
         res.json(resultados);
     } catch (err) {
         console.error(err);
@@ -316,14 +320,15 @@ router.get('/tareas/alertas/proximas', async (req, res) => {
 });
 
 // Obtener tareas vencidas
-router.get('/tareas/alertas/vencidas', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/alertas/vencidas'
+router.get('/alertas/vencidas', async (req, res) => { // <<-- CORREGIDO: de '/tareas/alertas/vencidas' a '/alertas/vencidas'
     const sql = `
         SELECT id, titulo, descripcion, prioridad, categoria, estado, fecha_creacion, fecha_limite FROM tareas
         WHERE estado != 'Completada' AND fecha_limite < CURDATE()
-    `; // <-- CORREGIDO Y COMPLETO: fecha_limite
+    `;
 
     try {
-        const resultados = await queryPromise(sql);
+        const [resultados] = await pool.query(sql); // <<-- CORREGIDO: usar pool.query y desestructurar
         res.json(resultados);
     } catch (err) {
         console.error(err);
@@ -332,13 +337,14 @@ router.get('/tareas/alertas/vencidas', async (req, res) => {
 });
 
 // Marcar tarea como completada
-router.put('/tareas/:id/completar', async (req, res) => {
+// La ruta base ya es /api/tareas, así que aquí es '/:id/completar'
+router.put('/:id/completar', async (req, res) => { // <<-- CORREGIDO: de '/tareas/:id/completar' a '/:id/completar'
     const { id } = req.params;
 
     const sql = `UPDATE tareas SET estado = 'Completada' WHERE id = ?`;
 
     try {
-        const resultado = await queryPromise(sql, [id]);
+        const [resultado] = await pool.query(sql, [id]); // <<-- CORREGIDO: usar pool.query
 
         if (resultado.affectedRows === 0) {
             return res.status(404).json({ mensaje: 'Tarea no encontrada' });
