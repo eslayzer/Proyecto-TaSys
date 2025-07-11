@@ -1,47 +1,71 @@
-import './App.css'
-import { useState } from 'react'
-import TareaList from './components/TareaList'
-import TareaForm from './components/TareaForm'
+import './App.css';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import TareaList from './components/TareaList';
+import TareaForm from './components/TareaForm';
+import EstadisticasTareas from './components/EstadisticasTareas';
 
 function App() {
-  const [actualizarLista, setActualizarLista] = useState(0); // Usamos un contador para forzar actualización
-  const [tareaSeleccionada, setTareaSeleccionada] = useState(null); // NUEVO ESTADO: para la tarea que se va a editar
+  const [actualizarLista, setActualizarLista] = useState(0);
+  const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
+  const [estadisticas, setEstadisticas] = useState(null);
 
-  // Esta función se llama cuando una tarea es CREADA o ACTUALIZADA
+  const cargarEstadisticas = async () => {
+    try {
+      const res = await axios.get('http://localhost:3000/api/tareas/estadisticas');
+      setEstadisticas(res.data);
+    } catch (error) {
+      console.error('Error al cargar las estadísticas:', error);
+      alert('Error al cargar las estadísticas: ' + (error.response?.data?.mensaje || error.message));
+    }
+  };
+
+  useEffect(() => {
+    cargarEstadisticas();
+  }, [actualizarLista]);
+
   const handleTareaGuardada = () => {
-    setActualizarLista(prev => prev + 1); // Incrementa para forzar la recarga de la lista en TareaList
-    setTareaSeleccionada(null); // Importante: Limpia la tarea seleccionada después de guardar (vuelve a modo "crear")
+    setActualizarLista(prev => prev + 1);
+    setTareaSeleccionada(null);
   };
 
-  // Esta función se llama desde TareaList cuando el usuario hace clic en "Editar"
   const handleEditarTarea = (tarea) => {
-    setTareaSeleccionada(tarea); // Guarda la tarea completa que se va a editar en el estado
-    // Opcional: podrías añadir aquí un scroll a la parte superior de la página para enfocar el formulario
+    setTareaSeleccionada(tarea);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Esta función se llama desde TareaForm cuando el usuario hace clic en "Cancelar Edición"
   const handleCancelarEdicion = () => {
-    setTareaSeleccionada(null); // Vuelve el formulario al modo "crear"
+    setTareaSeleccionada(null);
   };
 
   return (
-    <div className="App">
-      <h1>Sistema de Tareas - TASys</h1>
-      
-      {/* Pasar el estado de la tarea seleccionada y las funciones de manejo al TareaForm */}
+    <div className="App" style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+      {/* MODIFICADO: Eliminado backgroundColor y borderRadius del header */}
+      <header style={{ textAlign: 'center', marginBottom: '40px', color: 'white', padding: '20px' }}>
+        <h1 style={{ margin: '0' }}>Sistema de Gestión de Tareas (TASys)</h1>
+      </header>
+
+      {/* Renderiza el componente de estadísticas */}
+      <EstadisticasTareas estadisticas={estadisticas} />
+
+      <hr style={{ margin: '30px 0', borderColor: '#eee' }} />
+
       <TareaForm
-        onTareaGuardada={handleTareaGuardada} // Se mantiene la lógica de recarga
-        tareaAEditar={tareaSeleccionada}     // Se le pasa la tarea que debe editar
-        onCancelarEdicion={handleCancelarEdicion} // Se le pasa la función para cancelar la edición
+        onTareaGuardada={handleTareaGuardada}
+        tareaAEditar={tareaSeleccionada}
+        onCancelarEdicion={handleCancelarEdicion}
       />
-      
-      <hr />
-      
-      {/* Pasar la función para iniciar la edición al TareaList */}
+
+      <hr style={{ margin: '30px 0', borderColor: '#eee' }} />
+
       <TareaList
-        actualizar={actualizarLista}       // Se mantiene la lógica de recarga
-        onEditarTarea={handleEditarTarea}  // Se le pasa la función para que TareaList le diga a App qué tarea editar
+        actualizar={actualizarLista}
+        onEditarTarea={handleEditarTarea}
       />
+
+      <footer style={{ textAlign: 'center', marginTop: '40px', padding: '20px', borderTop: '1px solid #eee', color: '#777' }}>
+        <p>&copy; 2024 TASys. Todos los derechos reservados.</p>
+      </footer>
     </div>
   );
 }
