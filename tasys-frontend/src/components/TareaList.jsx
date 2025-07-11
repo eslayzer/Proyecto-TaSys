@@ -1,13 +1,13 @@
-// tasys-frontend/src/components/TareaList.jsx
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { downloadTasksAsCsv, downloadPdfFromServer } from '../utils/exportUtils';
+import HistorialTarea from './HistorialTarea'; // ✅ Importar componente de historial
 
-// Añade onEditarTarea como prop
-const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE AQUÍ: Añadido onEditarTarea
+const TareaList = ({ actualizar, onEditarTarea }) => {
   const [tareas, setTareas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [tareaHistorialVisible, setTareaHistorialVisible] = useState(null); // ✅ Nueva variable de estado
 
   const [filtro, setFiltro] = useState({
     estado: '',
@@ -89,15 +89,28 @@ const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '25px', marginTop: '20px' }}>
         <button
           onClick={downloadTasksAsCsv}
-          style={{ padding: '10px 20px', fontSize: '15px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'background-color 0.3s ease' }}
+          style={{
+            padding: '10px 20px', fontSize: '15px',
+            backgroundColor: '#4CAF50', color: 'white',
+            border: 'none', borderRadius: '5px',
+            cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'background-color 0.3s ease'
+          }}
           onMouseOver={e => e.currentTarget.style.backgroundColor = '#45a049'}
           onMouseOut={e => e.currentTarget.style.backgroundColor = '#4CAF50'}
         >
           Descargar CSV
         </button>
+
         <button
           onClick={downloadPdfFromServer}
-          style={{ padding: '10px 20px', fontSize: '15px', backgroundColor: '#008CBA', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'background-color 0.3s ease' }}
+          style={{
+            padding: '10px 20px', fontSize: '15px',
+            backgroundColor: '#008CBA', color: 'white',
+            border: 'none', borderRadius: '5px',
+            cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'background-color 0.3s ease'
+          }}
           onMouseOver={e => e.currentTarget.style.backgroundColor = '#007bb5'}
           onMouseOut={e => e.currentTarget.style.backgroundColor = '#008CBA'}
         >
@@ -105,6 +118,7 @@ const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE 
         </button>
       </div>
 
+      {/* Filtros */}
       <div style={{ marginBottom: '15px' }}>
         <label>Estado: </label>
         <select name="estado" value={filtro.estado} onChange={handleFiltroChange}>
@@ -136,6 +150,7 @@ const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE 
         <button onClick={limpiarFiltros} style={{ marginLeft: '5px' }}>Mostrar todo</button>
       </div>
 
+      {/* Lista de tareas */}
       {tareas.length === 0 ? (
         <p>No hay tareas registradas.</p>
       ) : (
@@ -143,20 +158,11 @@ const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE 
           {tareas.map(tarea => {
             let colorFondo = '#eee';
             switch (tarea.estado) {
-              case 'Vencida':
-                colorFondo = '#ffdddd';
-                break;
-              case 'Pendiente':
-                colorFondo = '#fff8d0';
-                break;
-              case 'Completada':
-                colorFondo = '#d0ffd8';
-                break;
-              case 'En Proceso':
-                colorFondo = '#d0e8ff';
-                break;
-              default:
-                colorFondo = '#f0f0f0';
+              case 'Vencida': colorFondo = '#ffdddd'; break;
+              case 'Pendiente': colorFondo = '#fff8d0'; break;
+              case 'Completada': colorFondo = '#d0ffd8'; break;
+              case 'En Proceso': colorFondo = '#d0e8ff'; break;
+              default: colorFondo = '#f0f0f0';
             }
 
             return (
@@ -171,11 +177,7 @@ const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE 
                 <strong>{tarea.titulo}</strong><br />
                 Estado: <strong>{tarea.estado}</strong><br />
                 Prioridad: {tarea.prioridad}<br />
-                Fecha límite: {tarea.fecha_limite ? new Date(tarea.fecha_limite).toLocaleDateString('es-EC', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                }) : 'N/A'}<br />
+                Fecha límite: {tarea.fecha_limite ? new Date(tarea.fecha_limite).toLocaleDateString('es-EC') : 'N/A'}<br />
                 Categoría: {tarea.categoria}<br />
                 Descripción: {tarea.descripcion}<br />
 
@@ -184,22 +186,57 @@ const TareaList = ({ actualizar, onEditarTarea }) => { // <-- CAMBIO IMPORTANTE 
                     Marcar como Completada
                   </button>
                 )}
-                
-                {/* !!! NUEVO BOTÓN DE EDITAR !!! */}
-                {/* Llama a la función onEditarTarea pasada desde App.jsx, enviando la tarea completa */}
+
                 <button
-                  onClick={() => onEditarTarea(tarea)} // <-- CAMBIO IMPORTANTE AQUÍ: Se añade el botón de editar
-                  style={{ marginLeft: '10px', backgroundColor: '#007bff', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }}
+                  onClick={() => onEditarTarea(tarea)}
+                  style={{
+                    marginLeft: '10px',
+                    backgroundColor: '#007bff',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px'
+                  }}
                 >
                   Editar
                 </button>
 
                 <button
                   onClick={() => eliminarTarea(tarea.id)}
-                  style={{ marginLeft: '10px', backgroundColor: '#ff5555', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }}
+                  style={{
+                    marginLeft: '10px',
+                    backgroundColor: '#ff5555',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px'
+                  }}
                 >
                   Eliminar
                 </button>
+
+                {/* ✅ Botón y sección de historial */}
+                <button
+                  onClick={() => setTareaHistorialVisible(
+                    tareaHistorialVisible === tarea.id ? null : tarea.id
+                  )}
+                  style={{
+                    marginLeft: '10px',
+                    backgroundColor: '#6c757d',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px'
+                  }}
+                >
+                  {tareaHistorialVisible === tarea.id ? 'Ocultar historial' : 'Ver historial'}
+                </button>
+
+                {tareaHistorialVisible === tarea.id && (
+                  <div style={{ marginTop: '10px' }}>
+                    <HistorialTarea tareaId={tarea.id} />
+                  </div>
+                )}
               </li>
             );
           })}
